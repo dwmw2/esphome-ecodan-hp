@@ -2,7 +2,6 @@
 
 #include "esphome.h"
 
-#include <HardwareSerial.h>
 #include <functional>
 
 #include <mutex>
@@ -251,7 +250,7 @@ namespace ecodan
         char payload[3] = {0xCA, 0x01};
         cmd.write_payload(payload, sizeof(payload));
 
-        ESP_LOGI(TAG, "Attempt to tx CONNECT_CMD!");
+        ESP_LOGI(TAG, "Attempt to tx CONNECT_CMD!", available());
         if (!serial_tx(cmd))
         {
             ESP_LOGI(TAG, "Failed to tx CONNECT_CMD!");

@@ -6,6 +6,7 @@
 
 #include "esphome.h"
 #include "esphome/core/component.h"
+#include "esphome/components/uart/uart.h"
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
@@ -19,13 +20,14 @@ namespace ecodan
 {    
     static constexpr const char *TAG = "ecodan.component";   
 
-    class EcodanHeatpump : public PollingComponent {
+    class EcodanHeatpump : public PollingComponent, public uart::UARTDevice {
     public:        
         EcodanHeatpump() : PollingComponent() {}
         void set_rx(int rx);
         void set_tx(int tx);
         void setup() override;
         void update() override;
+        void loop() override;
         void dump_config() override;    
     
         void register_sensor(sensor::Sensor *obj, const std::string& key) {
@@ -67,12 +69,10 @@ namespace ecodan
         bool begin_update_status();
 
         bool initialize();
-        void init_hw_watchdog();
         void handle_loop();
         bool is_connected();        
     
     private:
-        HardwareSerial& port = Serial1;
         std::mutex portWriteMutex;
         uint8_t serialRxPort{2};
         uint8_t serialTxPort{1};

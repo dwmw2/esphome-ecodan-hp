@@ -5,13 +5,6 @@ namespace ecodan
 { 
     void EcodanHeatpump::setup() {
         heatpumpInitialized = initialize();
-        xTaskCreate(
-            [](void* o){ static_cast<EcodanHeatpump*>(o)->serial_rx_thread(); },
-            "serial_rx_task",
-            8*1024,
-            this,
-            5,
-            NULL);        
     }
 
 
@@ -76,21 +69,25 @@ namespace ecodan
     {
         ESP_LOGI(TAG, "Initializing HeatPump with serial rx: %d, tx: %d", (int8_t)serialRxPort, (int8_t)serialTxPort);
 
-        pinMode(serialRxPort, INPUT_PULLUP);
-        pinMode(serialTxPort, OUTPUT);
-
         delay(25); // There seems to be a window after setting the pin modes where trying to use the UART can be flaky, so introduce a short delay
 
-        port.begin(2400, SERIAL_8E1, serialRxPort, serialTxPort);
+        check_uart_settings(2400, 1, uart::UART_CONFIG_PARITY_EVEN, 8);
         if (!is_connected())
             begin_connect();
-        init_hw_watchdog();        
         return true;
     }
 
+    void EcodanHeatpump::loop()
+    {
+        if (available() >= HEADER_SIZE)
+        {
+            handle_response();
+        }
+    }
+
     void EcodanHeatpump::handle_loop()
-    {         
-        if (!is_connected() && !port.available())
+    {
+        if (!is_connected() && !available())
         {
             static auto last_attempt = std::chrono::steady_clock::now();
             auto now = std::chrono::steady_clock::now();
