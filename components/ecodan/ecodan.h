@@ -77,7 +77,7 @@ namespace ecodan
         std::mutex portWriteMutex;
         uint8_t serialRxPort{2};
         uint8_t serialTxPort{1};
-
+        Message res_buffer_;
         Status status;
         float temperatureStep = 0.5f;
         bool connected = false;
