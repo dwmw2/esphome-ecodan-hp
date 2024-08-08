@@ -20,7 +20,7 @@ namespace ecodan
 {    
     static constexpr const char *TAG = "ecodan.component";   
 
-    class EcodanHeatpump : public PollingComponent, public uart::UARTDevice {
+    class EcodanHeatpump : public PollingComponent {
     public:        
         EcodanHeatpump() : PollingComponent() {}
         void set_rx(int rx);
@@ -52,7 +52,7 @@ namespace ecodan
         void set_power_mode(bool on);
         void set_hp_mode(int mode);
         void set_controller_mode(CONTROLLER_FLAG flag, bool on);
-
+        void set_uart_parent(uart::UARTComponent *uart) { this->uart_ = uart; }
         const Status& get_status() const { return status; }
 
     protected:
@@ -73,6 +73,7 @@ namespace ecodan
         bool is_connected();        
     
     private:
+	uart::UARTComponent *uart_ = nullptr;
         std::mutex portWriteMutex;
         uint8_t serialRxPort{2};
         uint8_t serialTxPort{1};
@@ -97,8 +98,6 @@ namespace ecodan
         void handle_get_response(Message& res);
         void handle_set_response(Message& res);
         void handle_connect_response(Message& res);
-
-        void serial_rx_thread();
     };
 
     class EcodanClimate : public climate::Climate, public PollingComponent  {

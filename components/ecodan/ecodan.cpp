@@ -67,19 +67,29 @@ namespace ecodan
 
     bool EcodanHeatpump::initialize()
     {
-        ESP_LOGI(TAG, "Initializing HeatPump with serial rx: %d, tx: %d", (int8_t)serialRxPort, (int8_t)serialTxPort);
+        if (!uart_) {
+            ESP_LOGE(TAG, "No UART configured");
+            return false;
+        }
 
-        delay(25); // There seems to be a window after setting the pin modes where trying to use the UART can be flaky, so introduce a short delay
+        ESP_LOGI(TAG, "Initializing HeatPump");
 
-        check_uart_settings(2400, 1, uart::UART_CONFIG_PARITY_EVEN, 8);
+        if (uart_->get_baud_rate() != 2400 ||
+            uart_->get_stop_bits() != 1 ||
+            uart_->get_data_bits() != 8 ||
+            uart_->get_parity() != uart::UART_CONFIG_PARITY_EVEN) {
+            ESP_LOGI(TAG, "UART not configured for 2400 8E1. This may not work...");
+        }
+
         if (!is_connected())
             begin_connect();
+
         return true;
     }
 
     void EcodanHeatpump::loop()
     {
-        if (available() >= HEADER_SIZE)
+        if (uart_ && uart_->available() >= HEADER_SIZE)
         {
             handle_response();
         }
@@ -87,7 +97,7 @@ namespace ecodan
 
     void EcodanHeatpump::handle_loop()
     {
-        if (!is_connected() && !available())
+        if (!is_connected() && uart_ && !uart_->available())
         {
             static auto last_attempt = std::chrono::steady_clock::now();
             auto now = std::chrono::steady_clock::now();

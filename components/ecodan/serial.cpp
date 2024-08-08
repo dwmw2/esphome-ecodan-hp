@@ -10,12 +10,12 @@ namespace ecodan
 #pragma region Serial
     bool EcodanHeatpump::serial_tx(Message& msg)
     {
-#if 0
-        if (!port)
+        if (!uart_)
         {
             ESP_LOGE(TAG, "Serial connection unavailable for tx");
             return false;
         }
+#if 0
         if (port.availableForWrite() < msg.size())
         {
             ESP_LOGI(TAG, "Serial tx buffer size: %u", port.availableForWrite());
@@ -25,7 +25,7 @@ namespace ecodan
         msg.set_checksum();
         {
             std::lock_guard<std::mutex> lock{portWriteMutex};
-            write_array(msg.buffer(), msg.size());
+            uart_->write_array(msg.buffer(), msg.size());
         }
         //port.flush(true);
 
@@ -36,34 +36,35 @@ namespace ecodan
     
     void EcodanHeatpump::resync_rx()
     {
-        while (available() > 0)
-            read();
+        uint8_t byte;
+
+        while (uart_->available() > 0)
+            uart_->read_byte(&byte);
     }
 
     bool EcodanHeatpump::serial_rx(Message& msg)
     {
-        if (available() < HEADER_SIZE)
+        if (uart_->available() < HEADER_SIZE)
         {
             const TickType_t maxBlockingTime = pdMS_TO_TICKS(1000);
             ulTaskNotifyTakeIndexed(0, pdTRUE, maxBlockingTime);
 
             // We were woken by an interrupt, but there's not enough data available
             // yet on the serial port for us to start processing it as a packet.
-            if (available() < HEADER_SIZE)
+            if (uart_->available() < HEADER_SIZE)
                 return false;
         }
 
         // Scan for the start of an Ecodan packet.
-        if (peek() != HEADER_MAGIC_A)
+        if (!uart_->read_array(msg.buffer(), HEADER_SIZE))
         {
-            ESP_LOGE(TAG, "Dropping serial data, header magic mismatch");
+            ESP_LOGI(TAG, "Serial port header read failure!");
             resync_rx();
             return false;
         }
-
-        if (!read_array(msg.buffer(), HEADER_SIZE))
+        if (msg.buffer()[0] != HEADER_MAGIC_A)
         {
-            ESP_LOGI(TAG, "Serial port header read failure!");
+            ESP_LOGE(TAG, "Dropping serial data, header magic mismatch");
             resync_rx();
             return false;
         }
@@ -80,18 +81,18 @@ namespace ecodan
         // It shouldn't take long to receive the rest of the payload after we get the header.
         size_t remainingBytes = msg.payload_size() + CHECKSUM_SIZE;
         auto startTime = std::chrono::steady_clock::now();
-        while (available() < remainingBytes)
+        while (uart_->available() < remainingBytes)
         {
             delay(1);
             if (std::chrono::steady_clock::now() - startTime > std::chrono::seconds(10))
             {
-                ESP_LOGI(TAG, "Serial port message could not be received within 10s (got %u / %u bytes)", available(), remainingBytes);
+                ESP_LOGI(TAG, "Serial port message could not be received within 10s (got %u / %u bytes)", uart_->available(), remainingBytes);
                 resync_rx();
                 return false;
             }
         }
 
-        if (!read_array(msg.payload(), remainingBytes))
+        if (!uart_->read_array(msg.payload(), remainingBytes))
         {
             ESP_LOGI(TAG, "Serial port payload read failure!");
             resync_rx();
