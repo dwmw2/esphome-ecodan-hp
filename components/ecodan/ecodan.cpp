@@ -51,8 +51,6 @@ namespace ecodan
         ESP_LOGI(TAG, "config"); 
     }
 
-#pragma region Configuration
-
     void EcodanHeatpump::set_rx(int rx) { 
         serialRxPort = rx; 
     }
@@ -60,10 +58,6 @@ namespace ecodan
     void EcodanHeatpump::set_tx(int tx) { 
         serialTxPort = tx; 
     }
-
-#pragma endregion Configuration
-
-#pragma region Init
 
     bool EcodanHeatpump::initialize()
     {
@@ -130,8 +124,6 @@ namespace ecodan
         return connected;
     }
 
-
-#pragma endregion Init
 
 } // namespace ecodan
 } // namespace esphome
