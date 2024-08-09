@@ -99,6 +99,16 @@ namespace ecodan
         HARDWARE_CONFIGURATION = 0xC9
     };
 
+    enum class MsgValid : uint8_t
+    {
+        MESSAGE_COMPLETED,
+        MESSAGE_SKIPPED_BYTE,
+        MESSAGE_HEADER_INVALID,
+        MESSAGE_CHECKSUM_INVALID,
+        MESSAGE_EXTENDED,
+        MESSAGE_ALREADY_DONE,
+    };
+
     template <class T>
     inline T operator &(const T& lhs, const T& rhs)
     {
@@ -204,8 +214,6 @@ namespace ecodan
             if (payload_size() > PAYLOAD_SIZE)
                 return false;
 
-            memset(payload(), 0, PAYLOAD_SIZE + CHECKSUM_SIZE);
-
             return true; // Looks like a valid header!
         }
 
@@ -276,13 +284,33 @@ namespace ecodan
             return write_payload((const uint8_t *)data, length);
         }
 
-        void append_byte(const char data)
+        MsgValid append_byte(const char data)
         {
+            // First byte needs to be HEADER_MAGIC_A.
+            if (!writeOffset_ && data != HEADER_MAGIC_A)
+                return MsgValid::MESSAGE_SKIPPED_BYTE;
+
+            // Add the byte to the packet.
             if (writeOffset_ < TOTAL_MSG_SIZE) {
                 buffer_[writeOffset_] = data;
                 writeOffset_++;
                 valid_ = true;
             }
+
+            // If the header is now complete, check it for sanity.
+            if (writeOffset_ == HEADER_SIZE && !verify_header())
+                return MsgValid::MESSAGE_HEADER_INVALID;
+
+            // If we don't yet have the full header, or if we do have the
+            // header but not yet the full payload, keep going.
+            if (writeOffset_ <= HEADER_SIZE || writeOffset_ < size())
+                return MsgValid::MESSAGE_EXTENDED;
+
+            // Got full packet. Verify its checksum.
+            if (!verify_checksum())
+                return MsgValid::MESSAGE_CHECKSUM_INVALID;
+
+            return MsgValid::MESSAGE_COMPLETED;
         }
 
         void set_checksum()
@@ -302,7 +330,6 @@ namespace ecodan
                 return false;
             if (v == buffer_[size() - 1])
                 return true;
-            
             return false;
         }
 

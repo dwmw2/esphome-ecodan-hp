@@ -39,44 +39,41 @@ namespace ecodan
         bool skipping = false;
 
         while (uart->available() && uart->read_byte(&data)) {
-            // Discard bytes until we see one that might reasonably be
-            // the first byte of a packet, complaining only once.
-            if (msg.get_write_offset() == 0 && data != HEADER_MAGIC_A) {
+
+            if (data == HEADER_MAGIC_A)
+                skipping = false;
+
+            switch (msg.append_byte(data)) {
+            case MsgValid::MESSAGE_SKIPPED_BYTE:
+                skipping = true;
                 if (!skipping) {
                     ESP_LOGE(TAG, "Dropping serial data; header magic mismatch");
                     skipping = true;
                 }
-                continue;
-            }
-            skipping = false;
+                break;
 
-            // Add the byte to the packet.
-            msg.append_byte(data);
-
-            // If the header is now complete, check it for sanity.
-            if (msg.get_write_offset() == HEADER_SIZE && !msg.verify_header()) {
+            case MsgValid::MESSAGE_HEADER_INVALID:
                 ESP_LOGI(TAG, "Serial port message appears invalid, skipping payload...");
                 msg = Message();
-                continue;
-            }
+                break;
 
-            // If we don't yet have the full header, or if we do have the
-            // header but not yet the full payload, keep going.
-            if (msg.get_write_offset() <= HEADER_SIZE ||
-                msg.get_write_offset() < msg.size()) {
-                continue;
-            }
-
-            // Got full packet. Verify its checksum.
-            if (!msg.verify_checksum()) {
+            case MsgValid::MESSAGE_CHECKSUM_INVALID:
                 ESP_LOGI(TAG, "Serial port message checksum invalid");
                 msg = Message();
                 continue;
+
+            case MsgValid::MESSAGE_EXTENDED:
+                continue;
+
+            case MsgValid::MESSAGE_COMPLETED:
+                return true;
+
+            case MsgValid::MESSAGE_ALREADY_DONE: /* Should never happen */
+                ESP_LOGE(TAG, "Trying to extend already-complete message");
+                msg = Message();
+                break;
             }
-
-            return true;
         }
-
         return false;
     }
 
