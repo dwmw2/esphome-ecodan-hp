@@ -86,14 +86,15 @@ namespace ecodan
 
     void EcodanHeatpump::loop()
     {
-        if (uart_ && serial_rx(uart_, res_buffer_))
+	    if (uart_ && serial_rx(uart_, res_buffer_, proxy_uart_))
         {
             #ifdef REVERSE_EGINEER
             ESP_LOGI(TAG, res_buffer_.debug_dump_packet().c_str());
             #endif
+#if 0
             if (proxy_uart_)
                 serial_tx(proxy_uart_, res_buffer_);
-            
+#endif       
             // intercept and interpret message before sending to slave
             handle_response(res_buffer_);
 	    last_res_buffer_ = res_buffer_;
@@ -101,6 +102,12 @@ namespace ecodan
         }
 
         if (proxy_uart_) {
+		int avail = proxy_uart_->available();
+
+		uint8_t buf[avail];
+		proxy_uart_->read_array(buf, avail);
+		uart_->write_array(buf, avail);
+#if 0		
 		uint8_t d;
 		uint8_t fake_response[18] = { 0x02, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x0A, 0x01, 0x00, 0x40, 0x00, 0x00, 0x06, 0x02, 0x7A, 0x00, 0x00, 0xB5 };
 		uint8_t proxy02_request[8] = { 0x02, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x02 };
@@ -156,6 +163,7 @@ namespace ecodan
 			    }
             proxy_buffer_ = Message();    
 		}
+#endif
 	}
     }
 
