@@ -99,15 +99,35 @@ namespace ecodan
             res_buffer_ = Message();
         }
 
-        if (proxy_uart_  && serial_rx(proxy_uart_, proxy_buffer_))
-        {
+        if (proxy_uart_) {
+		uint8_t d;
+		uint8_t fake_response[18] = { 0x02, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x0A, 0x01, 0x00, 0x40, 0x00, 0x00, 0x06, 0x02, 0x7A, 0x00, 0x00, 0xB5 };
+		uint8_t proxy02_request[8] = { 0x02, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x02 };
+		uint8_t proxy02_request2[9] = { 0x02, 0xff, 0xff, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00 };
+		uint8_t fake_response2[8] = { 0x02, 0xff, 0xff, 0x81, 0x00, 0x00, 0x00, 0x81 };
+		while (proxy_uart_->available() && proxy_buffer_.get_write_offset() == 0 &&
+		    proxy_uart_->peek_byte(&d) && d == 0x02) {
+			ESP_LOGI(TAG, "Checking for 0x02 0xFF proxy probe");
+			uint8_t *buf = proxy_buffer_.buffer();
+			int avail = proxy_uart_->available();
+			if (avail < 8)
+				return;
 
-            // Test try to handle 0x00 0xff 0xff sequences
-            if (proxy_buffer_.buffer()[0] == 0x02) {
-                uint8_t fake_response[18] = { 0x02, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x0A, 0x01, 0x00, 0x40, 0x00, 0x00, 0x06, 0x02, 0x7A, 0x00, 0x00, 0xB5 };
-                proxy_uart_->flush();
-                proxy_uart_->write_array(fake_response, 18);
-            }
+			proxy_uart_->read_array(buf, avail);
+			if (avail >= 8 && !memcmp(buf, proxy02_request, 8)) {
+				proxy_uart_->flush();
+				proxy_uart_->write_array(fake_response, 18);
+				ESP_LOGI(TAG, "Responded to 0x02 0xFF proxy probe 1");
+			} else if (avail >= 9 && !memcmp(buf, proxy02_request2, 9)) {
+				proxy_uart_->flush();
+				proxy_uart_->write_array(fake_response2, 8);
+				ESP_LOGI(TAG, "Responded to 0x02 0xFF proxy probe 2");
+			}
+			else ESP_LOGI(TAG, "Bad proxy probe");
+		}
+
+		if (serial_rx(proxy_uart_, proxy_buffer_)) {
+
 
             // forward cmds from slave to master
             serial_tx(uart_, proxy_buffer_);
@@ -126,6 +146,7 @@ namespace ecodan
 
             proxy_buffer_ = Message();    
         }
+       }
     }
 
     void EcodanHeatpump::handle_loop()
