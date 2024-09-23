@@ -91,11 +91,12 @@ namespace ecodan
             #ifdef REVERSE_EGINEER
             ESP_LOGI(TAG, res_buffer_.debug_dump_packet().c_str());
             #endif
+            if (proxy_uart_)
+                serial_tx(proxy_uart_, res_buffer_);
             
             // intercept and interpret message before sending to slave
             handle_response(res_buffer_);
-            if (proxy_uart_)
-                serial_tx(proxy_uart_, res_buffer_);
+	    last_res_buffer_ = res_buffer_;
             res_buffer_ = Message();
         }
 
@@ -128,6 +129,14 @@ namespace ecodan
 
 		if (serial_rx(proxy_uart_, proxy_buffer_)) {
 
+			if (proxy_buffer_.size() == last_proxy_buffer_.size() &&
+			    !memcmp(proxy_buffer_.buffer(), last_proxy_buffer_.buffer(),
+				    proxy_buffer_.size())) {
+				    serial_tx(proxy_uart_, last_res_buffer_);
+				    ESP_LOGI(TAG, "Repeat query");
+			    } else {
+				    
+			ESP_LOGI(TAG, "Proxy %s", proxy_buffer_.debug_dump_packet().c_str());
 
             // forward cmds from slave to master
             serial_tx(uart_, proxy_buffer_);
@@ -143,10 +152,11 @@ namespace ecodan
                 serial_tx(proxy_uart_, cmd);
             }
             #endif
-
+	    last_proxy_buffer_ = proxy_buffer_;
+			    }
             proxy_buffer_ = Message();    
-        }
-       }
+		}
+	}
     }
 
     void EcodanHeatpump::handle_loop()

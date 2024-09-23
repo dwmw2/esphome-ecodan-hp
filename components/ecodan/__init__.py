@@ -24,7 +24,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(CONF_ID): cv.declare_id(ECODAN),
         cv.Optional(CONF_PROXY_UART_ID): cv.use_id(UARTComponent),
     }
-    ).extend(cv.polling_component_schema('1000ms')
+    ).extend(cv.polling_component_schema('200ms')
     .extend(uart.UART_DEVICE_SCHEMA))
 
 

@@ -77,6 +77,9 @@ namespace ecodan
         Message res_buffer_;
         Message proxy_buffer_;
 
+	Message last_res_buffer_;
+	Message last_proxy_buffer_;
+
         Status status;
         float temperatureStep = 0.5f;
         bool connected = false;

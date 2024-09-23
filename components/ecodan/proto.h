@@ -162,6 +162,16 @@ namespace ecodan
             other.valid_ = false;
         }
 
+        Message& operator=(Message& other)
+        {
+            cmd_ = other.cmd_;
+            memcpy(buffer_, other.buffer_, sizeof(buffer_));
+            writeOffset_ = other.writeOffset_;
+            valid_ = other.valid_;
+            other.valid_ = false;
+
+            return *this;
+        }
         Message& operator=(Message&& other)
         {
             cmd_ = other.cmd_;
