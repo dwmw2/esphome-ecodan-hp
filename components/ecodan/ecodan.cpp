@@ -92,10 +92,10 @@ namespace ecodan
             ESP_LOGI(TAG, res_buffer_.debug_dump_packet().c_str());
             #endif
             
-            // intercept and interpret message before sending to slave
-            handle_response(res_buffer_);
             if (proxy_uart_)
                 serial_tx(proxy_uart_, res_buffer_);
+            // intercept and interpret message before sending to slave
+            handle_response(res_buffer_);
             res_buffer_ = Message();
         }
 
